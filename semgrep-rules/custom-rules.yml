@@ -1,0 +1,43 @@
+rules:
+  - id: hardcoded-crypto-secret
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: >
+      Hardcoded cryptographic secret passed directly as a literal. Signing
+      and HMAC keys must come from an environment variable or a secret
+      manager — anyone with read access to the repo can forge signatures
+      or tokens using this value.
+    metadata:
+      cwe: "CWE-798: Use of Hard-coded Credentials"
+      owasp: "A02:2021 - Cryptographic Failures"
+      references:
+        - https://owasp.org/Top10/A02_2021-Cryptographic_Failures/
+    patterns:
+      - pattern-either:
+          - pattern: crypto.createHmac($ALGO, "...")
+          - pattern: crypto.createHash($ALGO, "...")
+          - pattern: jwt.sign($PAYLOAD, "...", ...)
+
+  - id: dangerous-eval-usage
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: >
+      Use of eval() can execute arbitrary code if any part of the input is
+      influenced by user-controlled data. Avoid eval() entirely; use JSON.parse
+      for data, or refactor to avoid dynamic code execution.
+    metadata:
+      cwe: "CWE-95: Improper Neutralization of Directives in Dynamically Evaluated Code"
+      owasp: "A03:2021 - Injection"
+      references:
+        - https://owasp.org/Top10/A03_2021-Injection/
+    patterns:
+      - pattern: eval(...)
+
+# ---
+# Handling false positives on these rules:
+#   Inline suppression (must include a reason, don't suppress silently):
+#     const token = jwt.sign(payload, "test-only-secret") // nosemgrep: hardcoded-jwt-secret -- test fixture, not used in prod paths
+#
+#   Or exclude specific test/fixture paths in .semgrepignore:
+#     test/**
+#     spec/**

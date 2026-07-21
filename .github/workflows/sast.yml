@@ -24,8 +24,7 @@ jobs:
             --config=./semgrep-rules/custom-rules.yml \
             --error \
             --severity=ERROR \
-            --text-output=semgrep-results.txt \
-            | tee semgrep-results.txt
+            --text-output=semgrep-results.txt
 
       - name: Upload results as artifact
         if: always()

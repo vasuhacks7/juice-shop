@@ -1,0 +1,25 @@
+name: Secrets Scan - Gitleaks
+
+on:
+  pull_request:
+    branches: [master]
+  push:
+    branches: ['**']
+
+jobs:
+  gitleaks:
+    name: Gitleaks Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history — gitleaks needs to scan past commits, not just the latest snapshot
+
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_ENABLE_COMMENTS: false
+        # No custom "run:" step here and no pipe/tee — the action itself sets
+        # the job's exit code directly when it finds a leak, so there's no
+        # risk of accidentally masking failure the way the Semgrep tee did.

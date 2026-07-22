@@ -1,4 +1,4 @@
-name: SAST - Semgrep
+name: SAST - Semgrep Scan
 
 on:
   pull_request:

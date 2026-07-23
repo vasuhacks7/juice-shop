@@ -1,0 +1,36 @@
+name: SCA & SBOM
+
+on:
+  pull_request:
+    branches: [master]
+  push:
+    branches: ['**']
+
+jobs:
+  sca:
+    name: Dependency Audit & SBOM
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Dependency vulnerability audit (gate on High/Critical)
+        run: npm audit --audit-level=high
+
+      - name: Generate SBOM (CycloneDX format)
+        if: always()
+        uses: anchore/sbom-action@v0
+        with:
+          format: cyclonedx-json
+          output-file: sbom.cdx.json
+
+      - name: Upload SBOM as artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: sbom.cdx.json

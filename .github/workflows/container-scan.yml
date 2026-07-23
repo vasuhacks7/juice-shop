@@ -37,6 +37,25 @@ jobs:
       - name: Build hardened image
         run: docker build -f Dockerfile.hardened -t juice-shop:hardened .
 
+      - name: Run container and verify it actually serves the app
+        run: |
+          docker run -d --name juice-test -p 3000:3000 juice-shop:hardened
+          echo "Waiting for app to start..."
+          for i in $(seq 1 15); do
+            if curl -sf http://localhost:3000 > /dev/null; then
+              echo "App responded successfully after ${i}0 seconds"
+              break
+            fi
+            if [ "$i" -eq 15 ]; then
+              echo "App did not respond in time — dumping container logs:"
+              docker logs juice-test
+              exit 1
+            fi
+            sleep 10
+          done
+          docker stop juice-test
+          docker rm juice-test
+
       - name: Scan image with Trivy (gate on Critical/High)
         uses: aquasecurity/trivy-action@master
         with:
@@ -47,6 +66,16 @@ jobs:
           vuln-type: 'os,library'
 
 # Notes for the presentation:
+# - The "Run container and verify it actually serves the app" step is a
+#   smoke test, separate from the Trivy scan below it. It directly satisfies
+#   the minimum success criterion "the hardened Dockerfile builds and runs
+#   Juice Shop successfully" — building alone doesn't prove the container
+#   actually starts and serves traffic; a Dockerfile can build cleanly and
+#   still crash on startup (wrong CMD path, missing runtime file, etc.).
+#   The retry loop polls for up to 150 seconds since Juice Shop's Node app
+#   takes a few seconds to fully initialize before it starts responding.
+#   On failure, it dumps the container's logs before exiting, so a broken
+#   startup is debuggable from the Actions log rather than a bare timeout.
 # - Two jobs run in parallel: one scans the ORIGINAL Dockerfile as an
 #   informational baseline (exit-code 0, never fails, exists purely to
 #   generate comparison numbers for the before/after slide); the other

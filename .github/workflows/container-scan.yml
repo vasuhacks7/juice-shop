@@ -1,0 +1,75 @@
+name: Container Scan - Trivy
+
+on:
+  pull_request:
+    branches: [master]
+  push:
+    branches: ['**']
+
+jobs:
+  container-scan-baseline:
+    name: Scan Original Dockerfile (informational, non-blocking)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build original image
+        run: docker build -f Dockerfile -t juice-shop:original .
+
+      - name: Scan original image with Trivy (report only, does not fail the job)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: juice-shop:original
+          severity: CRITICAL,HIGH
+          exit-code: '0'
+          format: table
+          vuln-type: 'os,library'
+        # exit-code 0 here on purpose: this job exists to show the baseline
+        # vulnerability count for comparison, not to gate anything. Only the
+        # hardened image (below) is a required, blocking check.
+
+  container-scan:
+    name: Build & Scan Hardened Image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build hardened image
+        run: docker build -f Dockerfile.hardened -t juice-shop:hardened .
+
+      - name: Scan image with Trivy (gate on Critical/High)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: juice-shop:hardened
+          severity: CRITICAL,HIGH
+          exit-code: '1'
+          format: table
+          vuln-type: 'os,library'
+
+# Notes for the presentation:
+# - Two jobs run in parallel: one scans the ORIGINAL Dockerfile as an
+#   informational baseline (exit-code 0, never fails, exists purely to
+#   generate comparison numbers for the before/after slide); the other
+#   scans the HARDENED Dockerfile and is the actual required, blocking gate
+#   (exit-code 1). Only "container-scan" should be marked required in
+#   branch protection — "container-scan-baseline" is intentionally
+#   informational-only.
+# - Expect the HARDENED image to still show real Critical/High findings —
+#   hardening (distroless, non-root, no shell) reduces OS-layer attack
+#   surface, it does not patch application-level dependency vulnerabilities.
+#   Those are the same CVEs npm audit already found (ws, node-tar, uuid,
+#   etc.) baked into node_modules either way. The honest, defensible claim
+#   is "OS-level findings dropped substantially due to the distroless base,
+#   application-level findings persist and require separate dependency
+#   remediation" — not "hardening eliminated all vulnerabilities."
+# - "runs-on: ubuntu-latest" GitHub-hosted runners come with Docker
+#   pre-installed, so "docker build" works directly, no separate Docker
+#   setup step needed and no local Docker required on your own machine.
+# - "vuln-type: os,library" tells Trivy to check both layers: OS packages
+#   from the base image, and application-level libraries (the same
+#   node_modules npm audit already checked) — this is a second, independent
+#   scanner covering similar ground to SCA, which is intentional: different
+#   tools have different vulnerability databases and catch different things.
+# - "exit-code: 1" + "severity: CRITICAL,HIGH" is the gate on the hardened
+#   job: Trivy exits non-zero only when it finds a Critical or High finding,
+#   same pattern as the --error/--severity flags in the Semgrep workflow.

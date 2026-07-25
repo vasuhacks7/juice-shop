@@ -244,3 +244,6 @@ OWASP Juice Shop and any contributions are Copyright © by Bjoern Kimminich & th
 2014-2026.
 
 ![Juice Shop Logo](https://raw.githubusercontent.com/juice-shop/juice-shop/master/frontend/src/assets/public/images/JuiceShop_Logo_400px.png)
+
+## DevSecOps Pipeline Notes
+This fork includes a full DevSecOps pipeline: SAST (Semgrep), secrets scanning (Gitleaks), SCA + SBOM (npm audit + Syft), and container scanning (Trivy), plus branch protection on master.
